@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Versioning;
-using SharpHook.Native;
 using SharpHook.Reactive;
 using Sims1LegacyHacks.Hacks;
 using Windows.Win32;
@@ -31,20 +30,10 @@ internal static class Program
             throw new Exception($"Error opening process pid: {simsProc.Id}");
         }
 
-        var _1080pFix = new _1080pResolutionFix(simsHandle, simsProc);
-
         var hook = new SimpleReactiveGlobalHook();
-        hook.KeyReleased.Subscribe(evt =>
-        {
-            if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
-            {
-                _1080pFix.RunFix();
-            }
-            else if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF8)
-            {
-                _1080pFix.UndoFix();
-            }
-        });
+
+        var _1080pPatch = new _1080pResolutionPatch(hook, simsHandle, simsProc);
+
         hook.Run();
     }
 }

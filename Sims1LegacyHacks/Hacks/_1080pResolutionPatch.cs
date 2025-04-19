@@ -1,16 +1,18 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
+using SharpHook.Native;
+using SharpHook.Reactive;
 using Sims1LegacyHacks.Utilities;
 using Windows.Win32;
 
 namespace Sims1LegacyHacks.Hacks;
 
 [SupportedOSPlatform("windows5.1.2600")]
-public class _1080pResolutionFix
+public class _1080pResolutionPatch : IHack
 {
+    private readonly SimpleReactiveGlobalHook _hook;
     private readonly SafeFileHandle _simsHandle;
-    private readonly Process _simsProc;
     private const int OffsetFromEntry = 0x4F5C + 2;
     private const int DesiredWidth = 1280;
     private const int DesiredHeight = 720;
@@ -18,11 +20,30 @@ public class _1080pResolutionFix
     private int _previousHeight;
     private int _foundAddr;
 
-    public _1080pResolutionFix(SafeFileHandle simsHandle, Process simsProc)
+    public _1080pResolutionPatch(
+        SimpleReactiveGlobalHook hook,
+        SafeFileHandle simsHandle,
+        Process simsProc
+    )
     {
+        _hook = hook;
         _simsHandle = simsHandle;
-        _simsProc = simsProc;
         Startup(simsHandle, simsProc);
+    }
+
+    private void SetupKeyboardHook()
+    {
+        _hook.KeyReleased.Subscribe(evt =>
+        {
+            if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
+            {
+                Patch();
+            }
+            else if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF8)
+            {
+                UnPatch();
+            }
+        });
     }
 
     private void GetCurrentResolution()
@@ -70,27 +91,11 @@ public class _1080pResolutionFix
         _foundAddr = BitConverter.ToInt32(buff, 0);
 
         GetCurrentResolution();
+
+        SetupKeyboardHook();
     }
 
-    public void UndoFix()
-    {
-        MemUtils.WritePtrChains(_simsHandle, _foundAddr, WidthOffsetChains, _previousWidth);
-        MemUtils.WritePtrChains(_simsHandle, _foundAddr, HeightOffsetChains, _previousHeight);
-        MemUtils.WritePtrChains(
-            _simsHandle,
-            _foundAddr,
-            HeightOffsetChainsSub100,
-            _previousHeight - 100
-        );
-        MemUtils.WritePtrChains(
-            _simsHandle,
-            _foundAddr,
-            HeightOffsetChainsSub150,
-            _previousHeight - 150
-        );
-    }
-
-    public void RunFix()
+    private void Patch()
     {
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, WidthOffsetChains, DesiredWidth);
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, HeightOffsetChains, DesiredHeight);
@@ -105,6 +110,24 @@ public class _1080pResolutionFix
             _foundAddr,
             HeightOffsetChainsSub150,
             DesiredHeight - 150
+        );
+    }
+
+    private void UnPatch()
+    {
+        MemUtils.WritePtrChains(_simsHandle, _foundAddr, WidthOffsetChains, _previousWidth);
+        MemUtils.WritePtrChains(_simsHandle, _foundAddr, HeightOffsetChains, _previousHeight);
+        MemUtils.WritePtrChains(
+            _simsHandle,
+            _foundAddr,
+            HeightOffsetChainsSub100,
+            _previousHeight - 100
+        );
+        MemUtils.WritePtrChains(
+            _simsHandle,
+            _foundAddr,
+            HeightOffsetChainsSub150,
+            _previousHeight - 150
         );
     }
 
@@ -143,4 +166,10 @@ public class _1080pResolutionFix
         [0x4C, 0x10, 0x90, 0xD8], // height (panelback -150)
         [0x4C, 0x10, 0x90, 0xE8], // height (idk -150)
     ];
+
+    public void Dispose()
+    {
+        _simsHandle.Dispose();
+        _hook.Dispose();
+    }
 }
