@@ -1,18 +1,21 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Versioning;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using SharpHook.Native;
 using SharpHook.Reactive;
 using Sims1LegacyHacks.Utilities;
 using Windows.Win32;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Sims1LegacyHacks.Hacks;
 
 [SupportedOSPlatform("windows5.1.2600")]
-public class _1080pResolutionPatch : IHack
+public partial class _1080pResolutionPatch : IHack
 {
+    private readonly ILogger _logger;
     private readonly SimpleReactiveGlobalHook _hook;
-    private readonly SafeFileHandle _simsHandle;
+    private SafeFileHandle? _simsHandle;
     private const int OffsetFromEntry = 0x4F5C + 2;
     private const int DesiredWidth = 1280;
     private const int DesiredHeight = 720;
@@ -21,18 +24,19 @@ public class _1080pResolutionPatch : IHack
     private int _foundAddr;
 
     public _1080pResolutionPatch(
+        ILogger logger,
         SimpleReactiveGlobalHook hook,
-        SafeFileHandle simsHandle,
-        Process simsProc
+        SimsProcess simsProcess
     )
     {
+        _logger = logger;
         _hook = hook;
-        _simsHandle = simsHandle;
-        Startup(simsHandle, simsProc);
+        SetupSubscriptions(simsProcess);
     }
 
     private void SetupKeyboardHook()
     {
+        LogSetupKeyboardHooks(_logger);
         _hook.KeyReleased.Subscribe(evt =>
         {
             if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
@@ -46,8 +50,12 @@ public class _1080pResolutionPatch : IHack
         });
     }
 
-    private void GetCurrentResolution()
+    private bool GetCurrentResolution()
     {
+        if (_simsHandle is null)
+        {
+            return false;
+        }
         if (
             !MemUtils.ReadPtrChain(
                 _simsHandle,
@@ -63,8 +71,31 @@ public class _1080pResolutionPatch : IHack
             )
         )
         {
-            throw new Exception("Error reading previous width or height");
+            return false;
         }
+
+        LogInitialResolution(_logger, _previousWidth, _previousHeight);
+        return true;
+    }
+
+    private void SetupSubscriptions(SimsProcess simsProcess)
+    {
+        // simsProcess.HookEnabled.Subscribe(_ => SetupKeyboardHook());
+        simsProcess.SimsProcExited.Subscribe(_ => Stop());
+        var disposable = simsProcess.SimsHooked.Subscribe(evt =>
+        {
+            try
+            {
+                _simsHandle = evt.SimsHandle;
+                Startup(evt.SimsHandle, evt.SimsProc);
+            }
+            catch (Exception ex)
+            {
+                LogException(_logger, ex);
+                throw;
+            }
+        });
+        simsProcess.HookDisabled.Subscribe(_ => Dispose());
     }
 
     private unsafe void Startup(SafeFileHandle simsHandle, Process simsProc)
@@ -89,14 +120,28 @@ public class _1080pResolutionPatch : IHack
         }
 
         _foundAddr = BitConverter.ToInt32(buff, 0);
+        _logger.LogInformation("{FoundAddr}", _foundAddr);
 
-        GetCurrentResolution();
+        bool foundInitialResolution;
+        do
+        {
+            foundInitialResolution = GetCurrentResolution();
+            if (!foundInitialResolution)
+            {
+                _logger.LogDebug("InitialResolution not set");
+            }
+            Thread.Sleep(1000);
+        } while (!foundInitialResolution);
 
         SetupKeyboardHook();
     }
 
     private void Patch()
     {
+        if (_simsHandle is null)
+        {
+            return;
+        }
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, WidthOffsetChains, DesiredWidth);
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, HeightOffsetChains, DesiredHeight);
         MemUtils.WritePtrChains(
@@ -115,6 +160,11 @@ public class _1080pResolutionPatch : IHack
 
     private void UnPatch()
     {
+        LogUnPatching(_logger);
+        if (_simsHandle is null)
+        {
+            return;
+        }
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, WidthOffsetChains, _previousWidth);
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, HeightOffsetChains, _previousHeight);
         MemUtils.WritePtrChains(
@@ -154,7 +204,6 @@ public class _1080pResolutionPatch : IHack
         [0x4C, 0x10, 0x90, 0x28],
         [0x4C, 0x10, 0x90, 0xE0], // height (panelback)
     ];
-
     private static readonly List<List<int>> HeightOffsetChainsSub100 =
     [
         [0x4, 0x34],
@@ -167,9 +216,29 @@ public class _1080pResolutionPatch : IHack
         [0x4C, 0x10, 0x90, 0xE8], // height (idk -150)
     ];
 
-    public void Dispose()
+    public void Stop()
     {
-        _simsHandle.Dispose();
+        _simsHandle?.Dispose();
         _hook.Dispose();
     }
+
+    public void Dispose()
+    {
+        Stop();
+    }
+
+    [LoggerMessage(LogLevel.Information, "Registering CTRL+F9 and CTRL+F8")]
+    public static partial void LogSetupKeyboardHooks(ILogger l);
+
+    [LoggerMessage(LogLevel.Information, "CTRL+F9 pressed, patching")]
+    public static partial void LogPatching(ILogger l);
+
+    [LoggerMessage(LogLevel.Information, "CTRL+F8 pressed, un-patching")]
+    public static partial void LogUnPatching(ILogger l);
+
+    [LoggerMessage(LogLevel.Information, "Initial resolution found: {Width}x{Height}")]
+    public static partial void LogInitialResolution(ILogger l, int width, int height);
+
+    [LoggerMessage(LogLevel.Critical, "Exception")]
+    public static partial void LogException(ILogger l, Exception ex);
 }
