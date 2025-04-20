@@ -87,7 +87,7 @@ public partial class _1080pResolutionPatch : IHack
             try
             {
                 _simsHandle = evt.SimsHandle;
-                Startup(evt.SimsHandle, evt.SimsProc);
+                Startup(evt.SimsHandle, evt.BaseAddress);
             }
             catch (Exception ex)
             {
@@ -98,7 +98,7 @@ public partial class _1080pResolutionPatch : IHack
         simsProcess.HookDisabled.Subscribe(_ => Dispose());
     }
 
-    private unsafe void Startup(SafeFileHandle simsHandle, Process simsProc)
+    private unsafe void Startup(SafeFileHandle simsHandle, nint baseAddress)
     {
         var buff = new byte[4];
         fixed (byte* pBuff = buff)
@@ -106,16 +106,14 @@ public partial class _1080pResolutionPatch : IHack
             if (
                 !PInvoke.ReadProcessMemory(
                     simsHandle,
-                    (void*)(simsProc.MainModule!.BaseAddress + OffsetFromEntry),
+                    (void*)(baseAddress + OffsetFromEntry),
                     pBuff,
                     new UIntPtr(sizeof(int)),
                     (UIntPtr*)0
                 )
             )
             {
-                throw new Exception(
-                    $"Error reading memory: {simsProc.MainModule!.BaseAddress} + {OffsetFromEntry}"
-                );
+                throw new Exception($"Error reading memory: {baseAddress} + {OffsetFromEntry}");
             }
         }
 

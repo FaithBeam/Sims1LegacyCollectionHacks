@@ -11,15 +11,26 @@ namespace Sims1LegacyHacks;
 
 public class SimsHooked(Process simsProc, SafeFileHandle simsHandle)
 {
-    public Process SimsProc { get; } = simsProc;
+    public nint BaseAddress { get; } = simsProc.MainModule!.BaseAddress;
     public SafeFileHandle SimsHandle { get; } = simsHandle;
 }
 
 public partial class SimsProcess(ILogger<SimsProcess> logger, int sleepTime = 1000) : IDisposable
 {
+    /// <summary>
+    /// Searching for Sims.exe event
+    /// </summary>
     public IObservable<bool> HookEnabled => _hookEnabledSubject.AsObservable();
     public IObservable<bool> HookDisabled => _hookDisabledSubject.AsObservable();
+
+    /// <summary>
+    ///
+    /// </summary>
     public IObservable<SimsHooked> SimsHooked => _simsHookedSubject.AsObservable();
+
+    /// <summary>
+    /// Sims.exe has exited event
+    /// </summary>
     public IObservable<bool> SimsProcExited => _simsProcExitedSubject.AsObservable();
 
     [SupportedOSPlatform("windows5.1.2600")]
@@ -68,12 +79,12 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, int sleepTime = 10
 
     private void SimsProcOnExited(object? sender, EventArgs e)
     {
-        _logger.LogInformation("Sims process exited");
+        LogSimsExited(_logger);
         _simsProcExitedSubject.OnNext(true);
         Stop();
     }
 
-    public void Stop()
+    private void Stop()
     {
         _shouldStop = true;
         _simsThread?.Join();
@@ -97,6 +108,9 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, int sleepTime = 10
 
     [LoggerMessage(LogLevel.Information, "Stop monitoring processes for Sims.exe")]
     public static partial void LogStopMonitoringForSimsProcess(ILogger l);
+
+    [LoggerMessage(LogLevel.Information, "Sims.exe has exited")]
+    public static partial void LogSimsExited(ILogger l);
 
     private Process? _simsProc;
     private Thread? _simsThread;
