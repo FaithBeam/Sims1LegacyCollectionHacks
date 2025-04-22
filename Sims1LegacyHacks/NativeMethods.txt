@@ -1,3 +1,4 @@
 OpenProcess
 ReadProcessMemory
 WriteProcessMemory
+VirtualProtectEx

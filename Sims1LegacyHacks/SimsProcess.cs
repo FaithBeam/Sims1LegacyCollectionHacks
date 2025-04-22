@@ -13,9 +13,11 @@ public class SimsHooked(Process simsProc, SafeFileHandle simsHandle)
 {
     public nint BaseAddress { get; } = simsProc.MainModule!.BaseAddress;
     public SafeFileHandle SimsHandle { get; } = simsHandle;
+    public Process SimsProcess { get; } = simsProc;
 }
 
-public partial class SimsProcess(ILogger<SimsProcess> logger, int sleepTime = 1000) : IDisposable
+public partial class SimsProcess(ILogger<SimsProcess> logger, string simsPath, int sleepTime = 1000)
+    : IDisposable
 {
     /// <summary>
     /// Searching for Sims.exe event
@@ -40,11 +42,19 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, int sleepTime = 10
         _simsThread = new Thread(() =>
         {
             _hookEnabledSubject.OnNext(true);
-            do
-            {
-                _simsProc = Process.GetProcessesByName("Sims").SingleOrDefault();
-                Thread.Sleep(_sleepTime);
-            } while (_simsProc is null && !_shouldStop);
+            // do
+            // {
+            //     _simsProc = Process.GetProcessesByName("Sims").SingleOrDefault();
+            //     Thread.Sleep(_sleepTime);
+            // } while (_simsProc is null && !_shouldStop);
+
+            _simsProc = new Process();
+            _simsProc.StartInfo.FileName = _simsPath;
+            _simsProc.StartInfo.WorkingDirectory = Path.GetDirectoryName(
+                _simsProc.StartInfo.FileName
+            );
+            _simsProc.Start();
+            _simsProc.WaitForInputIdle();
 
             if (_shouldStop)
             {
@@ -115,6 +125,7 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, int sleepTime = 10
     private Process? _simsProc;
     private Thread? _simsThread;
     private readonly ILogger _logger = logger;
+    private readonly string _simsPath = simsPath;
     private readonly int _sleepTime = sleepTime;
     private bool _shouldStop = false;
     private readonly Subject<bool> _hookEnabledSubject = new();

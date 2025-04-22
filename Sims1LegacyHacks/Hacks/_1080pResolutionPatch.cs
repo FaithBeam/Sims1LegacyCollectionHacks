@@ -126,7 +126,7 @@ public partial class _1080pResolutionPatch : IHack
             foundInitialResolution = GetCurrentResolution();
             if (!foundInitialResolution)
             {
-                _logger.LogDebug("InitialResolution not set");
+                LogInitialResolutionNotSet(_logger, 1000);
             }
             Thread.Sleep(1000);
         } while (!foundInitialResolution);
@@ -192,17 +192,21 @@ public partial class _1080pResolutionPatch : IHack
         [0x4C, 0x10, 0x90, 0xDC], // (panelback)
         [0x44, 0x150, 0x90, 0x134, 0xDC], // (catalog page arrows + popup description box)
         [0x44, 0x150, 0x90, 0x134, 0xEC], // (catalog page arrows + popup description box)
+        [0x44, 0x1A8, 0x14], // (edge scroll detection)
+        [0x44, 0x1A8, 0x1C], // (edge scroll detection)
     ];
     private static readonly List<List<int>> HeightOffsetChains =
     [
         [0x4, 0x44],
         [0x44, 0x44, 0xE0],
-        [0x44, 0x18], // height (pause text)
-        [0x44, 0x28], // height (pause text)
-        [0x44, 0xE0], // height (left control thing)
+        [0x44, 0x18], // (pause text)
+        [0x44, 0x28], // (pause text)
+        [0x44, 0xE0], // (left control thing)
         [0x4C, 0x10, 0x90, 0x18],
         [0x4C, 0x10, 0x90, 0x28],
-        [0x4C, 0x10, 0x90, 0xE0], // height (panelback)
+        [0x4C, 0x10, 0x90, 0xE0], // (panelback)
+        [0x44, 0x1A8, 0x18], // (edge scroll detection)
+        [0x44, 0x1A8, 0x20], // (edge scroll detection)
     ];
     private static readonly List<List<int>> HeightOffsetChainsSub100 =
     [
@@ -226,6 +230,9 @@ public partial class _1080pResolutionPatch : IHack
     {
         Stop();
     }
+
+    [LoggerMessage(LogLevel.Debug, "InitialResolution not set, sleeping {Sleep}")]
+    public static partial void LogInitialResolutionNotSet(ILogger l, int sleep);
 
     [LoggerMessage(LogLevel.Information, "Registering CTRL+F9 and CTRL+F8")]
     public static partial void LogSetupKeyboardHooks(ILogger l);

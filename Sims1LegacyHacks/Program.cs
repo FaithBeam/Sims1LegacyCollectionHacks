@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Versioning;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SharpHook.Reactive;
 using Sims1LegacyHacks.Hacks;
@@ -10,6 +11,17 @@ internal partial class Program
     [SupportedOSPlatform("windows5.1.2600")]
     public static void Main(string[] args)
     {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
+
+        var simsPath = configuration["SimsPath"];
+        if (string.IsNullOrWhiteSpace(simsPath) || !File.Exists(simsPath))
+        {
+            throw new Exception("Sims.exe not found, please set SimsPath in appsettings.json");
+        }
+
         using var logFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Trace)
         );
@@ -17,14 +29,25 @@ internal partial class Program
 
         var hook = new SimpleReactiveGlobalHook();
 
-        var simsProc = new SimsProcess(logFactory.CreateLogger<SimsProcess>());
+        var simsProc = new SimsProcess(logFactory.CreateLogger<SimsProcess>(), simsPath);
         simsProc.Start();
 
-        var _1080pPatch = new _1080pResolutionPatch(
-            logFactory.CreateLogger<_1080pResolutionPatch>(),
-            hook,
-            simsProc
-        );
+        var debugCheatsSettings = configuration
+            .GetSection("hacks:debugCheats")
+            .Get<DebugCheatsSettings>();
+        if (debugCheatsSettings is not null)
+        {
+            var debugCheats = new DebugCheats(
+                logFactory.CreateLogger<DebugCheats>(),
+                simsProc,
+                debugCheatsSettings
+            );
+        }
+        // var _1080pPatch = new _1080pResolutionPatch(
+        //     logFactory.CreateLogger<_1080pResolutionPatch>(),
+        //     hook,
+        //     simsProc
+        // );
 
         hook.Run();
     }
