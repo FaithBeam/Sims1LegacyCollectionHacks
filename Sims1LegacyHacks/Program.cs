@@ -43,11 +43,19 @@ internal partial class Program
                 debugCheatsSettings
             );
         }
-        // var _1080pPatch = new _1080pResolutionPatch(
-        //     logFactory.CreateLogger<_1080pResolutionPatch>(),
-        //     hook,
-        //     simsProc
-        // );
+
+        var _1080pPatchSettings = configuration
+            .GetSection("hacks:1080pPatch")
+            .Get<_1080pResolutionPatchSettings>();
+        if (_1080pPatchSettings is not null)
+        {
+            var _1080pPatch = new _1080pResolutionPatch(
+                logFactory.CreateLogger<_1080pResolutionPatch>(),
+                hook,
+                simsProc,
+                _1080pPatchSettings
+            );
+        }
 
         hook.Run();
     }

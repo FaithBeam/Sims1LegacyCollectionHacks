@@ -10,11 +10,17 @@ using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Sims1LegacyHacks.Hacks;
 
+public class _1080pResolutionPatchSettings
+{
+    public bool Enabled { get; set; }
+}
+
 [SupportedOSPlatform("windows5.1.2600")]
 public partial class _1080pResolutionPatch : IHack
 {
     private readonly ILogger _logger;
     private readonly SimpleReactiveGlobalHook _hook;
+    private readonly _1080pResolutionPatchSettings _settings;
     private SafeFileHandle? _simsHandle;
     private const int OffsetFromEntry = 0x4F5C + 2;
     private const int DesiredWidth = 1280;
@@ -26,28 +32,33 @@ public partial class _1080pResolutionPatch : IHack
     public _1080pResolutionPatch(
         ILogger logger,
         SimpleReactiveGlobalHook hook,
-        SimsProcess simsProcess
+        SimsProcess simsProcess,
+        _1080pResolutionPatchSettings settings
     )
     {
         _logger = logger;
         _hook = hook;
+        _settings = settings;
         SetupSubscriptions(simsProcess);
     }
 
     private void SetupKeyboardHook()
     {
-        LogSetupKeyboardHooks(_logger);
-        _hook.KeyReleased.Subscribe(evt =>
+        if (_settings.Enabled)
         {
-            if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
+            LogSetupKeyboardHooks(_logger);
+            _hook.KeyReleased.Subscribe(evt =>
             {
-                Patch();
-            }
-            else if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF8)
-            {
-                UnPatch();
-            }
-        });
+                if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
+                {
+                    Patch();
+                }
+                else if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF8)
+                {
+                    UnPatch();
+                }
+            });
+        }
     }
 
     private bool GetCurrentResolution()
