@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using PatternFinder;
 using Windows.Win32;
-using Windows.Win32.Foundation;
 using Windows.Win32.System.Memory;
 
 namespace Sims1LegacyHacks.Hacks;

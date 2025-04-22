@@ -16,12 +16,6 @@ internal partial class Program
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
 
-        var simsPath = configuration["SimsPath"];
-        if (string.IsNullOrWhiteSpace(simsPath) || !File.Exists(simsPath))
-        {
-            throw new Exception("Sims.exe not found, please set SimsPath in appsettings.json");
-        }
-
         using var logFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Trace)
         );
@@ -29,7 +23,13 @@ internal partial class Program
 
         var hook = new SimpleReactiveGlobalHook();
 
-        var simsProc = new SimsProcess(logFactory.CreateLogger<SimsProcess>(), simsPath);
+        var simsProcessSettings = configuration
+            .GetRequiredSection("simsProcess")
+            .Get<SimsProcessSettings>();
+        var simsProc = new SimsProcess(
+            logFactory.CreateLogger<SimsProcess>(),
+            simsProcessSettings!
+        );
         simsProc.Start();
 
         var debugCheatsSettings = configuration

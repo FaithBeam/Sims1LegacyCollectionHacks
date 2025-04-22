@@ -9,15 +9,23 @@ using Windows.Win32.System.Threading;
 
 namespace Sims1LegacyHacks;
 
-public class SimsHooked(Process simsProc, SafeFileHandle simsHandle)
+public class SimsHooked(Process simsProcess, SafeFileHandle simsHandle)
 {
-    public nint BaseAddress { get; } = simsProc.MainModule!.BaseAddress;
+    public nint BaseAddress { get; } = simsProcess.MainModule!.BaseAddress;
     public SafeFileHandle SimsHandle { get; } = simsHandle;
-    public Process SimsProcess { get; } = simsProc;
+    public Process SimsProcess { get; } = simsProcess;
 }
 
-public partial class SimsProcess(ILogger<SimsProcess> logger, string simsPath, int sleepTime = 1000)
-    : IDisposable
+public class SimsProcessSettings
+{
+    public string? SimsPath { get; set; }
+}
+
+public partial class SimsProcess(
+    ILogger<SimsProcess> logger,
+    SimsProcessSettings settings,
+    int sleepTime = 1000
+) : IDisposable
 {
     /// <summary>
     /// Searching for Sims.exe event
@@ -48,41 +56,43 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, string simsPath, i
             //     Thread.Sleep(_sleepTime);
             // } while (_simsProc is null && !_shouldStop);
 
-            _simsProc = new Process();
-            _simsProc.StartInfo.FileName = _simsPath;
-            _simsProc.StartInfo.WorkingDirectory = Path.GetDirectoryName(
-                _simsProc.StartInfo.FileName
-            );
-            _simsProc.Start();
-            _simsProc.WaitForInputIdle();
+            var simsDir = Path.GetDirectoryName(_settings.SimsPath);
+            var simsSteamAppIdPath = Path.Combine(simsDir!, "steam_appid.txt");
+            if (!File.Exists(simsSteamAppIdPath))
+            {
+                using var steamAppIdFile = new StreamWriter(simsSteamAppIdPath);
+                steamAppIdFile.WriteLine("3314060");
+            }
+            var simsProc = new Process();
+            simsProc.StartInfo.FileName = _settings.SimsPath;
+            simsProc.StartInfo.WorkingDirectory = simsDir;
+            simsProc.Start();
+            simsProc.WaitForInputIdle();
 
             if (_shouldStop)
             {
                 return;
             }
 
-            if (_simsProc is not null)
+            LogFoundSimsProcess(_logger, simsProc);
+
+            simsProc.EnableRaisingEvents = true;
+            simsProc.Exited += SimsProcOnExited;
+
+            LogAttemptToOpenSimsProcess(_logger, simsProc.Id);
+            var simsHandle = PInvoke.OpenProcess_SafeHandle(
+                PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS,
+                false,
+                (uint)simsProc.Id
+            );
+            if (simsHandle.IsInvalid)
             {
-                LogFoundSimsProcess(_logger, _simsProc);
-
-                _simsProc.EnableRaisingEvents = true;
-                _simsProc.Exited += SimsProcOnExited;
-
-                LogAttemptToOpenSimsProcess(_logger, _simsProc.Id);
-                var simsHandle = PInvoke.OpenProcess_SafeHandle(
-                    PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS,
-                    false,
-                    (uint)_simsProc.Id
-                );
-                if (simsHandle.IsInvalid)
-                {
-                    throw new Exception($"Error opening process pid: {_simsProc.Id}");
-                }
-
-                LogHandleSuccess(_logger);
-                LogStopMonitoringForSimsProcess(_logger);
-                _simsHookedSubject.OnNext(new SimsHooked(_simsProc, simsHandle));
+                throw new Exception($"Error opening process pid: {simsProc.Id}");
             }
+
+            LogHandleSuccess(_logger);
+            LogStopMonitoringForSimsProcess(_logger);
+            _simsHookedSubject.OnNext(new SimsHooked(simsProc, simsHandle));
         });
         _simsThread.Start();
     }
@@ -99,7 +109,7 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, string simsPath, i
         _shouldStop = true;
         _simsThread?.Join();
         _hookDisabledSubject.OnNext(true);
-        _simsProc = null;
+        // _simsProc = null;
     }
 
     public void Dispose() { }
@@ -122,10 +132,9 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, string simsPath, i
     [LoggerMessage(LogLevel.Information, "Sims.exe has exited")]
     public static partial void LogSimsExited(ILogger l);
 
-    private Process? _simsProc;
     private Thread? _simsThread;
     private readonly ILogger _logger = logger;
-    private readonly string _simsPath = simsPath;
+    private readonly SimsProcessSettings _settings = settings;
     private readonly int _sleepTime = sleepTime;
     private bool _shouldStop = false;
     private readonly Subject<bool> _hookEnabledSubject = new();
