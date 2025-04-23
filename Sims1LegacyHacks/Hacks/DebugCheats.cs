@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using PatternFinder;
+using Sims1LegacyHacks.Utilities;
 using Windows.Win32;
 using Windows.Win32.System.Memory;
 
@@ -12,6 +13,7 @@ namespace Sims1LegacyHacks.Hacks;
 public class DebugCheatsSettings
 {
     public bool Enabled { get; set; }
+    public bool PlaySound { get; set; }
 }
 
 [SupportedOSPlatform("windows5.1.2600")]
@@ -127,6 +129,10 @@ public partial class DebugCheats : IHack
                         }
 
                         LogSuccess(_logger);
+                        if (_settings.PlaySound)
+                        {
+                            SoundPlayer.PlaySound();
+                        }
                         break;
                     }
 

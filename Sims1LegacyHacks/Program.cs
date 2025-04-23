@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SharpHook.Reactive;
 using Sims1LegacyHacks.Hacks;
+using Sims1LegacyHacks.Utilities;
 
 namespace Sims1LegacyHacks;
 
@@ -15,7 +16,7 @@ internal partial class Program
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
-
+        // SoundPlayer.LogAvailableResources();
         using var logFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Trace)
         );

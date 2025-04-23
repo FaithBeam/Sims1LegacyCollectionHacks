@@ -28,6 +28,7 @@
         <PackageReference Include="PatternFinder" Version="1.0.2"/>
         <PackageReference Include="SharpHook.Reactive" Version="5.3.9"/>
         <PackageReference Include="System.Reactive" Version="6.0.1"/>
+        <PackageReference Include="System.Windows.Extensions" Version="9.0.4" />
     </ItemGroup>
 
     <ItemGroup>
@@ -35,6 +36,11 @@
         <Content Include="appsettings.json">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="Resources\button-202966.wav" />
+      <EmbeddedResource Include="Resources\button-202966.wav" />
     </ItemGroup>
 
 </Project>

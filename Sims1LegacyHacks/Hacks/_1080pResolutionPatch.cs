@@ -13,6 +13,7 @@ namespace Sims1LegacyHacks.Hacks;
 public class _1080pResolutionPatchSettings
 {
     public bool Enabled { get; set; }
+    public bool PlaySound { get; set; }
 }
 
 [SupportedOSPlatform("windows5.1.2600")]
@@ -51,10 +52,18 @@ public partial class _1080pResolutionPatch : IHack
             {
                 if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
                 {
+                    if (_settings.PlaySound)
+                    {
+                        SoundPlayer.PlaySound();
+                    }
                     Patch();
                 }
                 else if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF8)
                 {
+                    if (_settings.PlaySound)
+                    {
+                        SoundPlayer.PlaySound();
+                    }
                     UnPatch();
                 }
             });
