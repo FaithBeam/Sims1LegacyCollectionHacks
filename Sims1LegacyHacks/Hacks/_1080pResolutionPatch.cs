@@ -14,6 +14,7 @@ public class _1080pResolutionPatchSettings
 {
     public bool Enabled { get; set; }
     public bool PlaySound { get; set; }
+    public int InitialResolutionSearchTimeout { get; set; }
 }
 
 [SupportedOSPlatform("windows5.1.2600")]
@@ -146,11 +147,17 @@ public partial class _1080pResolutionPatch : IHack
             foundInitialResolution = GetCurrentResolution();
             if (!foundInitialResolution)
             {
-                LogInitialResolutionNotSet(_logger, 1000);
+                LogInitialResolutionNotSet(_logger, _settings.InitialResolutionSearchTimeout);
             }
-            Thread.Sleep(1000);
-        } while (!foundInitialResolution);
+            Thread.Sleep(_settings.InitialResolutionSearchTimeout);
+        } while (
+            !foundInitialResolution && (!_simsHandle?.IsInvalid ?? false) && !_hook.IsDisposed
+        );
 
+        if ((_simsHandle?.IsInvalid ?? false) || _hook.IsDisposed)
+        {
+            return;
+        }
         SetupKeyboardHook();
     }
 
