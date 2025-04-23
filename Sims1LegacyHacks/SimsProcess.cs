@@ -19,13 +19,12 @@ public class SimsHooked(Process simsProcess, SafeFileHandle simsHandle)
 public class SimsProcessSettings
 {
     public string? SimsPath { get; set; }
+    public bool AutoStart { get; set; }
+    public int SleepTime { get; set; } = 1000;
 }
 
-public partial class SimsProcess(
-    ILogger<SimsProcess> logger,
-    SimsProcessSettings settings,
-    int sleepTime = 1000
-) : IDisposable
+public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSettings settings)
+    : IDisposable
 {
     /// <summary>
     /// Searching for Sims.exe event
@@ -50,24 +49,35 @@ public partial class SimsProcess(
         _simsThread = new Thread(() =>
         {
             _hookEnabledSubject.OnNext(true);
-            // do
-            // {
-            //     _simsProc = Process.GetProcessesByName("Sims").SingleOrDefault();
-            //     Thread.Sleep(_sleepTime);
-            // } while (_simsProc is null && !_shouldStop);
-
-            var simsDir = Path.GetDirectoryName(_settings.SimsPath);
-            var simsSteamAppIdPath = Path.Combine(simsDir!, "steam_appid.txt");
-            if (!File.Exists(simsSteamAppIdPath))
+            Process? simsProc = null;
+            if (_settings.AutoStart)
             {
-                using var steamAppIdFile = new StreamWriter(simsSteamAppIdPath);
-                steamAppIdFile.WriteLine("3314060");
+                var simsDir = Path.GetDirectoryName(_settings.SimsPath);
+                var simsSteamAppIdPath = Path.Combine(simsDir!, "steam_appid.txt");
+                if (!File.Exists(simsSteamAppIdPath))
+                {
+                    using var steamAppIdFile = new StreamWriter(simsSteamAppIdPath);
+                    steamAppIdFile.WriteLine("3314060");
+                }
+                simsProc = new Process();
+                simsProc.StartInfo.FileName = _settings.SimsPath;
+                simsProc.StartInfo.WorkingDirectory = simsDir;
+                simsProc.Start();
+                simsProc.WaitForInputIdle();
             }
-            var simsProc = new Process();
-            simsProc.StartInfo.FileName = _settings.SimsPath;
-            simsProc.StartInfo.WorkingDirectory = simsDir;
-            simsProc.Start();
-            simsProc.WaitForInputIdle();
+            else
+            {
+                do
+                {
+                    simsProc = Process.GetProcessesByName("Sims").SingleOrDefault();
+                    Thread.Sleep(_settings.SleepTime);
+                } while (simsProc is null && !_shouldStop);
+            }
+
+            if (simsProc is null)
+            {
+                throw new Exception("Unable to find Sims.exe process");
+            }
 
             if (_shouldStop)
             {
@@ -135,7 +145,6 @@ public partial class SimsProcess(
     private Thread? _simsThread;
     private readonly ILogger _logger = logger;
     private readonly SimsProcessSettings _settings = settings;
-    private readonly int _sleepTime = sleepTime;
     private bool _shouldStop = false;
     private readonly Subject<bool> _hookEnabledSubject = new();
     private readonly Subject<bool> _hookDisabledSubject = new();
