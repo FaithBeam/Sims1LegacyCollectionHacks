@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.System.Threading;
@@ -19,10 +20,12 @@ public class SimsHooked(Process simsProcess, SafeFileHandle simsHandle)
 public class SimsProcessSettings
 {
     public string? SimsPath { get; set; }
+    public SimsInstallType? SimsInstallType { get; set; }
     public bool AutoStart { get; set; }
-    public int SleepTime { get; set; } = 1000;
+    public int MonitorInterval { get; set; } = 1000;
 }
 
+[SupportedOSPlatform("windows5.1.2600")]
 public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSettings settings)
     : IDisposable
 {
@@ -42,35 +45,61 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
     /// </summary>
     public IObservable<bool> SimsProcExited => _simsProcExitedSubject.AsObservable();
 
-    [SupportedOSPlatform("windows5.1.2600")]
     public void Start()
     {
         LogStartup(_logger);
         _simsThread = new Thread(() =>
         {
             _hookEnabledSubject.OnNext(true);
-            Process? simsProc = null;
+            Process? simsProc;
+
+            // autostart is enabled, so we should start sims.exe
             if (_settings.AutoStart)
             {
-                var simsDir = Path.GetDirectoryName(_settings.SimsPath);
-                var simsSteamAppIdPath = Path.Combine(simsDir!, "steam_appid.txt");
-                if (!File.Exists(simsSteamAppIdPath))
+                // eagerly assume the user has provided the path to the sims.exe
+                var simsPath = _settings.SimsPath;
+                var simsDir = Path.GetDirectoryName(simsPath);
+                var simsInstallType = _settings.SimsInstallType;
+
+                // if the user didn't provide the path to the sims.exe, we need to find it
+                if (string.IsNullOrWhiteSpace(_settings.SimsPath))
                 {
-                    using var steamAppIdFile = new StreamWriter(simsSteamAppIdPath);
-                    steamAppIdFile.WriteLine("3314060");
+                    var simsInstall =
+                        GetSimsPath() ?? throw new Exception("Unable to find Sims.exe");
+                    simsPath = simsInstall.simsPath;
+                    simsDir = Path.GetDirectoryName(simsPath);
+                    simsInstallType = simsInstall.simsInstallType;
                 }
+
+                switch (simsInstallType)
+                {
+                    case SimsInstallType.Steam:
+                        var simsSteamAppIdPath = Path.Combine(simsDir!, "steam_appid.txt");
+                        if (!File.Exists(simsSteamAppIdPath))
+                        {
+                            using var steamAppIdFile = new StreamWriter(simsSteamAppIdPath);
+                            steamAppIdFile.WriteLine("3314060");
+                        }
+                        break;
+                    case SimsInstallType.Ea:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
                 simsProc = new Process();
-                simsProc.StartInfo.FileName = _settings.SimsPath;
+                simsProc.StartInfo.FileName = simsPath;
                 simsProc.StartInfo.WorkingDirectory = simsDir;
                 simsProc.Start();
                 simsProc.WaitForInputIdle();
             }
             else
             {
+                // autostart is disabled, so we should wait for sims.exe to start
                 do
                 {
                     simsProc = Process.GetProcessesByName("Sims").SingleOrDefault();
-                    Thread.Sleep(_settings.SleepTime);
+                    Thread.Sleep(_settings.MonitorInterval);
                 } while (simsProc is null && !_shouldStop);
             }
 
@@ -107,6 +136,27 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
         _simsThread.Start();
     }
 
+    private (string simsPath, SimsInstallType simsInstallType)? GetSimsPath()
+    {
+        var steamPathValue =
+            Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null)
+            as string;
+        if (!string.IsNullOrWhiteSpace(steamPathValue))
+        {
+            var simsExePath = Path.Combine(
+                steamPathValue,
+                @"steamapps\common\The Sims Legacy Collection\Sims.exe"
+            );
+            if (File.Exists(simsExePath))
+            {
+                return (simsExePath, SimsInstallType.Steam);
+            }
+        }
+
+        const string eaGamesSimsPath = @"C:\Program Files\EA Games\The Sims Legacy\sims.exe";
+        return File.Exists(eaGamesSimsPath) ? (eaGamesSimsPath, SimsInstallType.Ea) : null;
+    }
+
     private void SimsProcOnExited(object? sender, EventArgs e)
     {
         LogSimsExited(_logger);
@@ -119,7 +169,6 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
         _shouldStop = true;
         _simsThread?.Join();
         _hookDisabledSubject.OnNext(true);
-        // _simsProc = null;
     }
 
     public void Dispose() { }

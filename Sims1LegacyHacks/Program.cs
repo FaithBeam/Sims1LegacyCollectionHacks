@@ -16,7 +16,6 @@ internal partial class Program
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
-        // SoundPlayer.LogAvailableResources();
         using var logFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Trace)
         );
@@ -27,22 +26,39 @@ internal partial class Program
         var simsProcessSettings = configuration
             .GetRequiredSection("simsProcess")
             .Get<SimsProcessSettings>();
-        var simsProc = new SimsProcess(
-            logFactory.CreateLogger<SimsProcess>(),
-            simsProcessSettings!
-        );
-        simsProc.Start();
+        SimsProcess? simsProc = null;
+        try
+        {
+            simsProc = new SimsProcess(
+                logFactory.CreateLogger<SimsProcess>(),
+                simsProcessSettings!
+            );
+            simsProc.Start();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
 
         var debugCheatsSettings = configuration
             .GetSection("hacks:debugCheats")
             .Get<DebugCheatsSettings>();
         if (debugCheatsSettings is not null)
         {
-            var debugCheats = new DebugCheats(
-                logFactory.CreateLogger<DebugCheats>(),
-                simsProc,
-                debugCheatsSettings
-            );
+            try
+            {
+                var debugCheats = new DebugCheats(
+                    logFactory.CreateLogger<DebugCheats>(),
+                    simsProc,
+                    debugCheatsSettings
+                );
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
         }
 
         var _1080pPatchSettings = configuration
