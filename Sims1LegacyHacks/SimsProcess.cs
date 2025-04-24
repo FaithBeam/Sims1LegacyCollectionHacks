@@ -10,11 +10,18 @@ using Windows.Win32.System.Threading;
 
 namespace Sims1LegacyHacks;
 
-public class SimsHooked(Process simsProcess, SafeFileHandle simsHandle)
+public class SimsHooked(
+    Process simsProcess,
+    SafeFileHandle simsHandle,
+    string? simsPath,
+    SimsInstallType? simsInstallType
+)
 {
     public nint BaseAddress { get; } = simsProcess.MainModule!.BaseAddress;
     public SafeFileHandle SimsHandle { get; } = simsHandle;
     public Process SimsProcess { get; } = simsProcess;
+    public string? SimsPath { get; set; } = simsPath;
+    public SimsInstallType? SimsInstallType { get; set; } = simsInstallType;
 }
 
 public class SimsProcessSettings
@@ -118,6 +125,25 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
             simsProc.EnableRaisingEvents = true;
             simsProc.Exited += SimsProcOnExited;
 
+            string? simsPathForEvt = null;
+            SimsInstallType? simsInstallTypeForEvt = null;
+            foreach (ProcessModule module in simsProc.Modules)
+            {
+                if (module.ModuleName == "Sims.exe")
+                {
+                    simsPathForEvt = module.FileName;
+                }
+
+                simsInstallTypeForEvt = module.ModuleName switch
+                {
+                    "steam_api.dll" => SimsInstallType.Steam,
+                    "Activation.dll" => SimsInstallType.Ea,
+                    _ => simsInstallTypeForEvt,
+                };
+
+                // logger.LogInformation($"{module.ModuleName} {module.FileName}");
+            }
+
             LogAttemptToOpenSimsProcess(_logger, simsProc.Id);
             var simsHandle = PInvoke.OpenProcess_SafeHandle(
                 PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS,
@@ -131,7 +157,9 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
 
             LogHandleSuccess(_logger);
             LogStopMonitoringForSimsProcess(_logger);
-            _simsHookedSubject.OnNext(new SimsHooked(simsProc, simsHandle));
+            _simsHookedSubject.OnNext(
+                new SimsHooked(simsProc, simsHandle, simsPathForEvt, simsInstallTypeForEvt)
+            );
         });
         _simsThread.Start();
     }
