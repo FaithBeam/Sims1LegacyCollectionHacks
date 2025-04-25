@@ -28,7 +28,7 @@ This project is a collection of hacks for The Sims 1 Legacy Collection.
 |              | Steam | EA |
 |--------------|-------|----|
 | Debug Cheats | ✓     | ✓  |
-| 1080p Fix    | ✓     | ✓  |
+| 1080p Fix    | ✓     | x  |
 
 ## Development
 
