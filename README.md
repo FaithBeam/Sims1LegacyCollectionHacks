@@ -1,0 +1,30 @@
+﻿# Sims 1 Legacy Collection Hacks
+
+This project is a collection of hacks for The Sims 1 Legacy Collection. The intent is for all hacks to work for Steam and EA app users.
+
+## Hacks
+
+- Debug Cheats Patch
+- 1080p fix (beta and buggy)
+
+## How to Use
+
+1. Download the latest [release](https://github.com/FaithBeam/Sims1LegacyCollectionHacks/releases)
+2. Extract the zip file
+3. Run Sims1LegacyHacks.exe **before** you open Sims 1 Legacy Collection
+
+## OS Compatibility
+
+| Windows 11 | ✓  |
+|------------|----|
+| Windows 10 | ✓  |
+| macOS      | ✓* |
+| Linux      | ✓* |
+
+\* there are no binaries for macOS or Linux, but you can try it through WINE. The executables are compiled nativeaot so there is no dependence on .NET runtime.
+
+## Development
+
+1. Download [Visual Studio](https://visualstudio.microsoft.com/vs/community/) or [Jetbrains Rider](https://www.jetbrains.com/rider/)
+2. Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) if it does not get installed from Visual Studio or Rider
+3. Open Sims1LegacyHacks.sln with Visual Studio or Rider
