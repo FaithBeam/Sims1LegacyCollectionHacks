@@ -1,6 +1,6 @@
 ﻿# Sims 1 Legacy Collection Hacks
 
-This project is a collection of hacks for The Sims 1 Legacy Collection. The intent is for all hacks to work for Steam and EA app users.
+This project is a collection of hacks for The Sims 1 Legacy Collection.
 
 ## Hacks
 
@@ -22,6 +22,13 @@ This project is a collection of hacks for The Sims 1 Legacy Collection. The inte
 | Linux      | ✓* |
 
 \* there are no binaries for macOS or Linux, but you can try it through WINE. The executables are compiled nativeaot so there is no dependence on .NET runtime.
+
+## Store Version Compatibility
+
+|              | Steam | EA |
+|--------------|-------|----|
+| Debug Cheats | ✓     | ✓  |
+| 1080p Fix    | ✓     | ✓  |
 
 ## Development
 
