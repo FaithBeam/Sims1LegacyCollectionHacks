@@ -13,6 +13,13 @@ This project is a collection of hacks for The Sims 1 Legacy Collection.
 2. Extract the zip file
 3. Run Sims1LegacyHacks.exe **before** you open Sims 1 Legacy Collection
 
+- Debug Cheats Patch
+  - automatically applied on startup and you should hear a click sound to notify you the hack is applied
+- 1080p fix (beta and buggy)
+  - the screen will look weird after applying the hack. Press f2 then f3 to make the game load the updated UI
+  - press ctrl+f9 to enable
+  - press ctrl+f8 to disable
+
 ## OS Compatibility
 
 | Windows 11 | ✓  |
