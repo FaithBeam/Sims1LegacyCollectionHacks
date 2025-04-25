@@ -27,4 +27,5 @@ This project is a collection of hacks for The Sims 1 Legacy Collection. The inte
 
 1. Download [Visual Studio](https://visualstudio.microsoft.com/vs/community/) or [Jetbrains Rider](https://www.jetbrains.com/rider/)
 2. Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) if it does not get installed from Visual Studio or Rider
+3. ```git clone https://github.com/FaithBeam/Sims1LegacyCollectionHacks```
 3. Open Sims1LegacyHacks.sln with Visual Studio or Rider
