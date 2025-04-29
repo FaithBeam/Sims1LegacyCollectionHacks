@@ -45,3 +45,14 @@ Video: [How to Run Sims 1 Legacy Hacks](https://www.youtube.com/watch?v=SLDmUN7y
 2. Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) if it does not get installed from Visual Studio or Rider
 3. ```git clone https://github.com/FaithBeam/Sims1LegacyCollectionHacks```
 4. Open Sims1LegacyHacks.sln with Visual Studio or Rider
+
+## Build from Source
+
+Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
+```bash
+git clone https://github.com/FaithBeam/Sims1LegacyCollectionHacks
+cd Sims1LegacyCollectionHacks
+dotnet publish -c Release Sims1LegacyCollectionHacks/Sims1LegacyCollectionHacks.csproj -o bin
+```
+
+Sims1LegacyCollectionHacks.exe is located in the bin folder.
