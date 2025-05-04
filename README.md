@@ -46,13 +46,30 @@ Video: [How to Run Sims 1 Legacy Hacks](https://www.youtube.com/watch?v=SLDmUN7y
 3. ```git clone https://github.com/FaithBeam/Sims1LegacyCollectionHacks```
 4. Open Sims1LegacyHacks.sln with Visual Studio or Rider
 
-## Build from Source
+## Build from Source (NativeAOT)
 
+Download [Git](https://git-scm.com/downloads/win)
 Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
+Download [Visual Studio](https://visualstudio.microsoft.com/vs/community/)
+  - (Workload) Desktop development with c++
+
 ```bash
 git clone https://github.com/FaithBeam/Sims1LegacyCollectionHacks
 cd Sims1LegacyCollectionHacks
-dotnet publish -c Release Sims1LegacyCollectionHacks/Sims1LegacyCollectionHacks.csproj -o bin
+dotnet publish -c Release Sims1LegacyHacks/Sims1LegacyHacks.csproj -o bin
+```
+
+Sims1LegacyCollectionHacks.exe is located in the bin folder.
+
+## Build from Source (.NET IL)
+
+Download [Git](https://git-scm.com/downloads/win)
+Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
+
+```bash
+git clone https://github.com/FaithBeam/Sims1LegacyCollectionHacks
+cd Sims1LegacyCollectionHacks
+dotnet build -c Release Sims1LegacyHacks/Sims1LegacyHacks.csproj -o bin
 ```
 
 Sims1LegacyCollectionHacks.exe is located in the bin folder.
