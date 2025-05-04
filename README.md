@@ -63,7 +63,7 @@ dotnet publish -c Release Sims1LegacyHacks/Sims1LegacyHacks.csproj -o bin
 
 Sims1LegacyCollectionHacks.exe is located in the bin folder.
 
-## Build from Source (.NET IL)
+## Build from Source (CIL)
 
 Download [Git](https://git-scm.com/downloads/win)
 
