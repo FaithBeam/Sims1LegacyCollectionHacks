@@ -1,12 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using PatternFinder;
 using Sims1LegacyHacks.Utilities;
 using Windows.Win32;
 using Windows.Win32.System.Memory;
+using ILogger = Serilog.ILogger;
 
 namespace Sims1LegacyHacks.Hacks;
 
@@ -17,7 +17,7 @@ public class DebugCheatsSettings
 }
 
 [SupportedOSPlatform("windows5.1.2600")]
-public partial class DebugCheats : IHack
+public class DebugCheats : IHack
 {
     private readonly ILogger _logger;
     private readonly DebugCheatsSettings _settings;
@@ -26,7 +26,7 @@ public partial class DebugCheats : IHack
 
     public DebugCheats(ILogger logger, SimsProcess simsProcess, DebugCheatsSettings settings)
     {
-        _logger = logger;
+        _logger = logger.ForContext<DebugCheats>();
         _settings = settings;
         SetupSubscriptions(simsProcess);
     }
@@ -35,7 +35,7 @@ public partial class DebugCheats : IHack
     {
         if (_settings.Enabled)
         {
-            LogEnabled(_logger);
+            _logger.Information("Debug cheats are enabled");
             simsProcess.SimsHooked.Subscribe(evt =>
             {
                 _simsHandle = evt.SimsHandle;
@@ -49,10 +49,12 @@ public partial class DebugCheats : IHack
     {
         if (_simsProcess is not null)
         {
-            LogSearchingMemoryForDebugCheats(_logger);
+            _logger.Information("Searching Sims memory for debug cheats bytes");
             var addr = _simsProcess.MainModule!.BaseAddress;
             var maxSize = _simsProcess.VirtualMemorySize64;
+            _logger.Information("Addr: {Addr}, MaxSize: {MaxSize}", addr, maxSize);
             var buff = new byte[4096];
+
             fixed (byte* pBuff = buff)
             {
                 while (addr < maxSize)
@@ -73,12 +75,23 @@ public partial class DebugCheats : IHack
                     )
                     {
                         var err = Marshal.GetLastWin32Error();
-                        LogException(_logger, "ReadProcessMemory failed", err);
-                        return;
+                        _logger.Error(
+                            "ReadProcessMemory failed, handle: {Handle}, address: {Address}, Win32 Error: {Win32Err}",
+                            _simsHandle,
+                            addr,
+                            err
+                        );
+                        throw new DebugCheatsException(
+                            $"ReadProcessMemory failed, handle: {_simsHandle}, address: {addr}, win32Err: {err}"
+                        );
                     }
                     if (Pattern.Find(buff, PatternBytes, out var offset))
                     {
-                        LogFoundOffset(_logger, addr, offset);
+                        _logger.Information(
+                            "Found debug cheats bytes at {Address} + {Offset}",
+                            addr,
+                            offset
+                        );
 
                         if (
                             !PInvoke.VirtualProtectEx(
@@ -91,8 +104,10 @@ public partial class DebugCheats : IHack
                         )
                         {
                             var err = Marshal.GetLastWin32Error();
-                            LogException(_logger, "VirtualProtectEx failed", err);
-                            return;
+                            _logger.Error("VirtualProtectEx failed, Win32 Error: {Win32Err}", err);
+                            throw new DebugCheatsException(
+                                $"VirtualProtectEx failed, win32Err: {err}"
+                            );
                         }
 
                         fixed (int* pPatchBytesBuff = PatchBytes)
@@ -108,8 +123,16 @@ public partial class DebugCheats : IHack
                             )
                             {
                                 var err = Marshal.GetLastWin32Error();
-                                LogException(_logger, "WriteProcessMemory failed", err);
-                                return;
+                                _logger.Error(
+                                    "WriteProcessMemory failed, handle: {SimsHandle}, address: {Address} + {Offset} + 4, Win32 Error: {Win32Err}",
+                                    _simsHandle,
+                                    addr,
+                                    offset,
+                                    err
+                                );
+                                throw new DebugCheatsException(
+                                    $"WriteProcessMemory failed, handle: {_simsHandle}, address: {addr} + {offset} + 4, win32Err: {err}"
+                                );
                             }
                         }
 
@@ -124,11 +147,17 @@ public partial class DebugCheats : IHack
                         )
                         {
                             var err = Marshal.GetLastWin32Error();
-                            LogException(_logger, "VirtualProtectEx failed", err);
-                            return;
+                            _logger.Error(
+                                "{Msg} Win32 Error: {Win32Err}",
+                                "VirtualProtectEx failed",
+                                err
+                            );
+                            throw new DebugCheatsException(
+                                $"VirtualProtectEx failed, win32Err: {err}"
+                            );
                         }
 
-                        LogSuccess(_logger);
+                        _logger.Information("Debug cheats bytes patched successfully");
                         if (_settings.PlaySound)
                         {
                             SoundPlayer.PlaySound();
@@ -148,24 +177,20 @@ public partial class DebugCheats : IHack
         _simsProcess?.Dispose();
     }
 
-    [LoggerMessage(LogLevel.Information, "Debug cheats are enabled")]
-    public static partial void LogEnabled(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "Searching Sims memory for debug cheats bytes")]
-    public static partial void LogSearchingMemoryForDebugCheats(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "Found debug cheats bytes at {Address} + {Offset}")]
-    public static partial void LogFoundOffset(ILogger l, nint address, long offset);
-
-    [LoggerMessage(LogLevel.Error, "{Msg}\nWin32 Error: {Win32Err}")]
-    public static partial void LogException(ILogger l, string msg, int win32Err);
-
-    [LoggerMessage(LogLevel.Information, "Debug cheats bytes patched successfully")]
-    public static partial void LogSuccess(ILogger l);
-
     private const string SearchPattern = "807B4C007543";
     private static readonly int[] PatchBytes = [0xEB];
     private static readonly PatternFinder.Pattern.Byte[] PatternBytes = Pattern.Transform(
         SearchPattern
     );
+}
+
+public class DebugCheatsException : Exception
+{
+    public DebugCheatsException() { }
+
+    public DebugCheatsException(string message)
+        : base(message) { }
+
+    public DebugCheatsException(string message, Exception inner)
+        : base(message, inner) { }
 }

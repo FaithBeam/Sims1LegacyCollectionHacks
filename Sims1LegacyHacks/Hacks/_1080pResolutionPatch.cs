@@ -1,12 +1,10 @@
-﻿using System.Diagnostics;
-using System.Runtime.Versioning;
-using Microsoft.Extensions.Logging;
+﻿using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
+using Serilog;
 using SharpHook.Native;
 using SharpHook.Reactive;
 using Sims1LegacyHacks.Utilities;
 using Windows.Win32;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace Sims1LegacyHacks.Hacks;
 
@@ -48,7 +46,7 @@ public partial class _1080pResolutionPatch : IHack
     {
         if (_settings.Enabled)
         {
-            LogSetupKeyboardHooks(_logger);
+            _logger.Information("Registering CTRL+F9 and CTRL+F8");
             _hook.KeyReleased.Subscribe(evt =>
             {
                 if (evt.RawEvent.Mask.HasCtrl() && evt.Data.KeyCode == KeyCode.VcF9)
@@ -95,7 +93,11 @@ public partial class _1080pResolutionPatch : IHack
             return false;
         }
 
-        LogInitialResolution(_logger, _previousWidth, _previousHeight);
+        _logger.Information(
+            "Initial resolution found: {Width}x{Height}",
+            _previousWidth,
+            _previousHeight
+        );
         return true;
     }
 
@@ -112,7 +114,7 @@ public partial class _1080pResolutionPatch : IHack
             }
             catch (Exception ex)
             {
-                LogException(_logger, ex);
+                _logger.Error(ex, "Error starting up");
                 throw;
             }
         });
@@ -139,7 +141,7 @@ public partial class _1080pResolutionPatch : IHack
         }
 
         _foundAddr = BitConverter.ToInt32(buff, 0);
-        _logger.LogInformation("{FoundAddr}", _foundAddr);
+        _logger.Information("{FoundAddr}", _foundAddr);
 
         bool foundInitialResolution;
         do
@@ -147,7 +149,10 @@ public partial class _1080pResolutionPatch : IHack
             foundInitialResolution = GetCurrentResolution();
             if (!foundInitialResolution)
             {
-                LogInitialResolutionNotSet(_logger, _settings.InitialResolutionSearchTimeout);
+                _logger.Debug(
+                    "InitialResolution not set, sleeping {Sleep}",
+                    _settings.InitialResolutionSearchTimeout
+                );
             }
             Thread.Sleep(_settings.InitialResolutionSearchTimeout);
         } while (
@@ -167,6 +172,7 @@ public partial class _1080pResolutionPatch : IHack
         {
             return;
         }
+        _logger.Information("CTRL+F9 pressed, patching");
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, WidthOffsetChains, DesiredWidth);
         MemUtils.WritePtrChains(_simsHandle, _foundAddr, HeightOffsetChains, DesiredHeight);
         MemUtils.WritePtrChains(
@@ -185,7 +191,7 @@ public partial class _1080pResolutionPatch : IHack
 
     private void UnPatch()
     {
-        LogUnPatching(_logger);
+        _logger.Information("CTRL+F8 pressed, un-patching");
         if (_simsHandle is null)
         {
             return;
@@ -257,22 +263,4 @@ public partial class _1080pResolutionPatch : IHack
     {
         Stop();
     }
-
-    [LoggerMessage(LogLevel.Debug, "InitialResolution not set, sleeping {Sleep}")]
-    public static partial void LogInitialResolutionNotSet(ILogger l, int sleep);
-
-    [LoggerMessage(LogLevel.Information, "Registering CTRL+F9 and CTRL+F8")]
-    public static partial void LogSetupKeyboardHooks(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "CTRL+F9 pressed, patching")]
-    public static partial void LogPatching(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "CTRL+F8 pressed, un-patching")]
-    public static partial void LogUnPatching(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "Initial resolution found: {Width}x{Height}")]
-    public static partial void LogInitialResolution(ILogger l, int width, int height);
-
-    [LoggerMessage(LogLevel.Critical, "Exception")]
-    public static partial void LogException(ILogger l, Exception ex);
 }

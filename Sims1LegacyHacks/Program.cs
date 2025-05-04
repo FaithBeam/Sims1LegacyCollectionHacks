@@ -1,13 +1,12 @@
 ﻿using System.Runtime.Versioning;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using Serilog;
 using SharpHook.Reactive;
 using Sims1LegacyHacks.Hacks;
-using Sims1LegacyHacks.Utilities;
 
 namespace Sims1LegacyHacks;
 
-internal partial class Program
+internal class Program
 {
     [SupportedOSPlatform("windows5.1.2600")]
     public static void Main(string[] args)
@@ -16,70 +15,70 @@ internal partial class Program
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
-        using var logFactory = LoggerFactory.Create(builder =>
-            builder.AddConsole().SetMinimumLevel(LogLevel.Trace)
-        );
-        var logger = logFactory.CreateLogger<Program>();
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+            .WriteTo.File(
+                "Sims1LegacyHacks.log",
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+            )
+            .WriteTo.Console(
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+            )
+            .CreateLogger();
 
-        var hook = new SimpleReactiveGlobalHook();
-
-        var simsProcessSettings = configuration
-            .GetRequiredSection("simsProcess")
-            .Get<SimsProcessSettings>();
-        SimsProcess? simsProc = null;
+        var logger = Log.Logger.ForContext<Program>();
         try
         {
-            simsProc = new SimsProcess(
-                logFactory.CreateLogger<SimsProcess>(),
-                simsProcessSettings!
+            logger.Information(
+                "Operating System: {OSVersion}",
+                Environment.OSVersion.VersionString
             );
-            simsProc.Start();
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
 
-        var debugCheatsSettings = configuration
-            .GetSection("hacks:debugCheats")
-            .Get<DebugCheatsSettings>();
-        if (debugCheatsSettings is not null)
-        {
+            var hook = new SimpleReactiveGlobalHook();
+
+            var simsProcessSettings = configuration
+                .GetRequiredSection("simsProcess")
+                .Get<SimsProcessSettings>();
+            SimsProcess? simsProc = null;
             try
             {
-                var debugCheats = new DebugCheats(
-                    logFactory.CreateLogger<DebugCheats>(),
-                    simsProc,
-                    debugCheatsSettings
-                );
+                simsProc = new SimsProcess(Log.Logger, simsProcessSettings!);
+                simsProc.Start();
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
                 throw;
             }
-        }
 
-        var _1080pPatchSettings = configuration
-            .GetSection("hacks:1080pPatch")
-            .Get<_1080pResolutionPatchSettings>();
-        if (_1080pPatchSettings is not null)
+            var debugCheatsSettings = configuration
+                .GetSection("hacks:debugCheats")
+                .Get<DebugCheatsSettings>();
+            if (debugCheatsSettings is not null)
+            {
+                var debugCheats = new DebugCheats(Log.Logger, simsProc, debugCheatsSettings);
+            }
+
+            var _1080pPatchSettings = configuration
+                .GetSection("hacks:1080pPatch")
+                .Get<_1080pResolutionPatchSettings>();
+            if (_1080pPatchSettings is not null)
+            {
+                var _1080pPatch = new _1080pResolutionPatch(
+                    Log.Logger,
+                    hook,
+                    simsProc,
+                    _1080pPatchSettings
+                );
+            }
+
+            hook.Run();
+        }
+        catch (Exception e)
         {
-            var _1080pPatch = new _1080pResolutionPatch(
-                logFactory.CreateLogger<_1080pResolutionPatch>(),
-                hook,
-                simsProc,
-                _1080pPatchSettings
-            );
+            logger.Error(e, "Exception");
+            Log.CloseAndFlush();
+            throw;
         }
-
-        hook.Run();
     }
-
-    [LoggerMessage(LogLevel.Information, "Searching processes for Sims.exe.")]
-    public static partial void LogGetSimsProc(ILogger l);
-
-    [LoggerMessage(LogLevel.Critical, "Unable to find Sims.exe process.")]
-    public static partial void LogGetSimsProcFailed(ILogger l);
 }

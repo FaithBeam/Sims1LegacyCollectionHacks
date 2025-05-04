@@ -2,9 +2,9 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.Versioning;
-using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
+using Serilog;
 using Windows.Win32;
 using Windows.Win32.System.Threading;
 
@@ -33,8 +33,7 @@ public class SimsProcessSettings
 }
 
 [SupportedOSPlatform("windows5.1.2600")]
-public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSettings settings)
-    : IDisposable
+public partial class SimsProcess(ILogger logger, SimsProcessSettings settings) : IDisposable
 {
     /// <summary>
     /// Searching for Sims.exe event
@@ -54,7 +53,7 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
 
     public void Start()
     {
-        LogStartup(_logger);
+        _logger.Information("Monitoring processes for Sims.exe");
         _simsThread = new Thread(() =>
         {
             _hookEnabledSubject.OnNext(true);
@@ -120,7 +119,8 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
                 return;
             }
 
-            LogFoundSimsProcess(_logger, simsProc);
+            _logger.Information("Found Sims process: {Process}", simsProc);
+            _logger.Information("Sims path: {Path}", simsProc.MainModule!.FileName);
 
             simsProc.EnableRaisingEvents = true;
             simsProc.Exited += SimsProcOnExited;
@@ -140,11 +140,9 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
                     "Activation.dll" => SimsInstallType.Ea,
                     _ => simsInstallTypeForEvt,
                 };
-
-                // logger.LogInformation($"{module.ModuleName} {module.FileName}");
             }
 
-            LogAttemptToOpenSimsProcess(_logger, simsProc.Id);
+            _logger.Information("Attempting to retrieve a handle to {Pid}", simsProc.Id);
             var simsHandle = PInvoke.OpenProcess_SafeHandle(
                 PROCESS_ACCESS_RIGHTS.PROCESS_ALL_ACCESS,
                 false,
@@ -155,8 +153,11 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
                 throw new Exception($"Error opening process pid: {simsProc.Id}");
             }
 
-            LogHandleSuccess(_logger);
-            LogStopMonitoringForSimsProcess(_logger);
+            _logger.Information(
+                "Retrieving a handle successful, handle valid: {HandleValid}",
+                !simsHandle.IsInvalid
+            );
+            _logger.Information("Stop monitoring processes for Sims.exe");
             _simsHookedSubject.OnNext(
                 new SimsHooked(simsProc, simsHandle, simsPathForEvt, simsInstallTypeForEvt)
             );
@@ -187,7 +188,7 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
 
     private void SimsProcOnExited(object? sender, EventArgs e)
     {
-        LogSimsExited(_logger);
+        _logger.Information("Sims.exe has exited");
         _simsProcExitedSubject.OnNext(true);
         Stop();
     }
@@ -200,24 +201,6 @@ public partial class SimsProcess(ILogger<SimsProcess> logger, SimsProcessSetting
     }
 
     public void Dispose() { }
-
-    [LoggerMessage(LogLevel.Information, "Monitoring processes for Sims.exe")]
-    public static partial void LogStartup(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "Found Sims process: {Process}")]
-    public static partial void LogFoundSimsProcess(ILogger l, Process process);
-
-    [LoggerMessage(LogLevel.Information, "Attempting to retrieve a handle to {Pid}")]
-    public static partial void LogAttemptToOpenSimsProcess(ILogger l, int pid);
-
-    [LoggerMessage(LogLevel.Information, "Retrieving a handle successful")]
-    public static partial void LogHandleSuccess(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "Stop monitoring processes for Sims.exe")]
-    public static partial void LogStopMonitoringForSimsProcess(ILogger l);
-
-    [LoggerMessage(LogLevel.Information, "Sims.exe has exited")]
-    public static partial void LogSimsExited(ILogger l);
 
     private Thread? _simsThread;
     private readonly ILogger _logger = logger;
