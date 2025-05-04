@@ -49,7 +49,9 @@ Video: [How to Run Sims 1 Legacy Hacks](https://www.youtube.com/watch?v=SLDmUN7y
 ## Build from Source (NativeAOT)
 
 Download [Git](https://git-scm.com/downloads/win)
+
 Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
+
 Download [Visual Studio](https://visualstudio.microsoft.com/vs/community/)
   - (Workload) Desktop development with c++
 
@@ -64,6 +66,7 @@ Sims1LegacyCollectionHacks.exe is located in the bin folder.
 ## Build from Source (.NET IL)
 
 Download [Git](https://git-scm.com/downloads/win)
+
 Download [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 
 ```bash
