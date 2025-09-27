@@ -9,7 +9,7 @@ This project is a collection of hacks for The Sims 1 Legacy Collection.
 
 ## How to Use
 
-Video: [How to Run Sims 1 Legacy Hacks](https://www.youtube.com/watch?v=SLDmUN7yquw)
+Video: [How to Run Sims 1 Legacy Hacks](https://youtu.be/NCxUhD08DlY)
 
 1. Download the latest [release](https://github.com/FaithBeam/Sims1LegacyCollectionHacks/releases)
 2. Extract the zip file
